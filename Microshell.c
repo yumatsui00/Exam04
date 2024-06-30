@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <sys/wait.h>
 #include <string.h>
-
-//iこのコマンドを実行
+#include <stdlib.h>
 
 int	err(char *str) {
 	while (*str)
@@ -41,7 +40,8 @@ int	exec(char **argv, int i, char **envp) {
 	}
 	waitpid(pid, &status, 0);
 	if (ispipe && (dup2(fd[0], 0) == -1 || close(fd[0]) == -1 || close(fd[1]) == -1))
-		return err("error: fatal\n") && WEXITSTATUS(status);
+		return err("error: fatal\n") ;
+	return WIFEXITED(status) && WEXITSTATUS(status);
 
 }
 
