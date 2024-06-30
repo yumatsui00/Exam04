@@ -1,101 +1,63 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/wait.h>
+#include <string.h>
 
-typedef struct s_cmd
-{
-	char	**cmd;
-	int		*status;
-	int		start;
-	int		end;
-	int		pipenum;
-	int		*pipe;
-}					t_cmd;
+//iこのコマンドを実行
 
-#define COM 1
-#define ERR 2
-#define PIPE 3
-#define SEMQ 4
-
-void	cd(t_cmd mini)
-{
-	
+int	err(char *str) {
+	while (*str)
+		write(2, str++, 1);
+	return 1;
 }
 
-int	*creat_pipe(t_cmd mini)
-{
-	int	*pip;
-	int i = 0;
+int	cd(char **argv, int i) {
+	if (i != 2)
+		return err("error: cd: bad arguments\n");
+	if (chdir(argv[1]) == -1)
+		return err("error: cd: cannot change directory to "), err(argv[1]), err("\n");
+	return 0;
+}
 
-	pip = (int *)malloc(sizeof(int) * (mini.pipenum + 1) * 2);
-	while (i < mini.pipenum) {
-		pipe(pip + i * 2);
+int	exec(char **argv, int i, char **envp) {
+	int	fd[2];
+	int	status;
+	int	ispipe = argv[i] && !strcmp(argv[i], "|");
+
+	if (!ispipe && !strcmp(*argv, "cd"))
+		return cd(argv, i);
+	if (ispipe && pipe(fd) == -1)
+		return err("error: fatal\n");
+
+	pid_t pid = fork();
+	if (pid == 0) {
+		if (ispipe && (dup2(fd[1], 1) == -1 || close(fd[0]) == -1 || close(fd[1]) == -1))
+			return err("error: fatal\n");
+		if (!strcmp(*argv, "cd"))
+			return cd(argv, i);
+		argv[i] = NULL;
+		execve(*argv, argv, envp);
+		return err("error: cannot execute "), err(*argv), err("\n");
 	}
-	return (pip);
+	waitpid(pid, &status, 0);
+	if (ispipe && (dup2(fd[0], 0) == -1 || close(fd[0]) == -1 || close(fd[1]) == -1))
+		return err("error: fatal\n") && WEXITSTATUS(status);
+
 }
 
-void	exec(t_cmd mini, char **envp)
-{
-	int	*pipe;
-	pid_t pid;
-
-	if (mini.pipenum == 0 && !strncmp(mini.cmd, "cd"))
-		cd(mini);
-	else {
-		pipe = creat_pipe(mini);
-		for (int i = 0; i <= mini.pipenum; i++) {
-			pid = fork();
-			if (pid == 0) {
-				if (i == 0)	{
-					if (mini.pipenum != 0)
-						dup2(pipe[1], 1);
-				} 
-				else if (i == mini.pipenum)
-					dup2(pipe[2 * i - 1], 0);
-				else
-				{
-					dup2(pipe[2 * i - 2], 0);
-					dup2(pipe[2 * i + 1], 1);
-				}
-				//!execveだけどどこまでかはまだ
-			} else {
-				if (i != 0)
-					close (pipe[2 * 1 - 2]);
-			}
-		}
-	}
-	free(pipe);
-}
-
-int	main(int argc, char **argv, char **envp){
-	t_cmd	mini;
-	int		i = 0;
+int main(int argc, char **argv, char **envp) {
+	int	i = 0;
+	int	status = 0;
 
 	if (argc > 1) {
-		mini.cmd = argv;
-		mini.status = (int *)malloc(sizeof(int) * argc + 1);
-		mini.status[0] = 0;
-		mini.pipenum = 0;
-		mini.start = 1;
-		while (argv[++i]) {
-			if (!strcmp(mini.cmd[i], "|"))
-			{	
-				mini.status = PIPE;
-				mini.pipenum ++;
-			}
-			else if (!strcmp(mini.cmd[i], ";"))
-			{
-				mini.end = i;
-				mini.status = SEMQ;
-				exec(mini, envp);
-				mini.start = i + 1;
-			}
-			else
-				mini.status = COM;
+		while (argv[i] && argv[++i]) {
+			argv += i; //次のコマンドまで移動
+			i = 0; //実行するコマンドの数を数える
+			while (argv[i] && strcmp(argv[i], "|") && strcmp(argv[i], ";"))
+				i++;
+			if (i)
+				status = exec(argv, i, envp); //これが終了ステータスになる
 		}
-		mini.end = i;
-		exec(mini, envp);
-		free(mini.status);
 	}
-	return ;
+	return status;
 }
