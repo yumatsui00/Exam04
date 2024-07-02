@@ -21,15 +21,3 @@ If a system call, except execve and chdir, returns an error your program should 
 If execve failed you should print "error: cannot execute executable_that_failed" in STDERR followed by a '\n' with executable_that_failed replaced with the path of the failed executable (It should be the first argument of execve)
 
 Your program should be able to manage more than hundreds of "|" even if we limit the number of "open files" to less than 30.
-
-
-
-Example
-for example this should work:
-
-$>./microshell /bin/ls "|" /usr/bin/grep microshell ";" /bin/echo i love my microshell
-microshell
-i love my microshell
-$>
-
->./microshell 
