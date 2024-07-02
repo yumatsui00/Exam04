@@ -18,16 +18,14 @@ int	cd(char **argv, int i) {
 	return 0;
 }
 
-int	exec(char **argv, int i, char **envp) {
+int	exec(char **argv, int i, char **envp, int ispipe) {
 	int	fd[2];
 	int	status;
-	int	ispipe = argv[i] && !strcmp(argv[i], "|");
 
 	if (!ispipe && !strcmp(*argv, "cd"))
 		return cd(argv, i);
 	if (ispipe && pipe(fd) == -1)
 		return err("error: fatal\n");
-
 	pid_t pid = fork();
 	if (pid == 0) {
 		if (ispipe && (dup2(fd[1], 1) == -1 || close(fd[0]) == -1 || close(fd[1]) == -1))
@@ -42,7 +40,6 @@ int	exec(char **argv, int i, char **envp) {
 	if (ispipe && (dup2(fd[0], 0) == -1 || close(fd[0]) == -1 || close(fd[1]) == -1))
 		return err("error: fatal\n") ;
 	return WIFEXITED(status) && WEXITSTATUS(status);
-
 }
 
 int main(int argc, char **argv, char **envp) {
@@ -51,12 +48,13 @@ int main(int argc, char **argv, char **envp) {
 
 	if (argc > 1) {
 		while (argv[i] && argv[++i]) {
-			argv += i; //次のコマンドまで移動
-			i = 0; //実行するコマンドの数を数える
+			argv += i;
+			i = 0;
 			while (argv[i] && strcmp(argv[i], "|") && strcmp(argv[i], ";"))
 				i++;
+			int	ispipe = argv[i] && !strcmp(argv[i], "|");
 			if (i)
-				status = exec(argv, i, envp); //これが終了ステータスになる
+				status = exec(argv, i, envp, ispipe);
 		}
 	}
 	return status;
