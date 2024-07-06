@@ -1,7 +1,6 @@
 # Exam04 Subject
-Write a program that will behave like executing a shell command
-
-The command line to execute will be the arguments of this program
+- Write a program that will behave like executing a shell command
+- The command line to execute will be the arguments of this program
 
 Executable's path will be absolute or relative but your program must not build a path (from the PATH variable for example)
 
